@@ -1,6 +1,10 @@
 #Created by Allyn Stott (allyn.stott@navy.mil)
 #If you update with changes (please do!), email them out and I'll keep track of changes
 
-Converts DISA's stig_viewer checklist file (ckl) to a POA&M Excel spreadsheet (xlsx). When using the DISA stig_viewer you can save your checklist where the output is a CKL file (really just an XML file). ckl2poam takes the XML output (the CKL file) and puts it into POA&M format, preserving the status and comments fields. The Excel spreadsheet (xlsx) features two tabs: POA&M and Remediation. This allows mitigators to use DISA's stig_viewer as their checklist tool as they manually walk a STIG and then put the output into something that both management (POA&M tab) and sysadmin's (Remediation tab) will be able to use. Please note that the comments field from the checklist file is only dropped into the Remediation tab and not the POA&M tab (it is left blank).
+Converts DISA's stig_viewer checklist file (ckl) to a POA&M Excel spreadsheet (xlsx). When using the DISA stig_viewer you can save your checklist where the output is a CKL file (really just an XML file). ckl2poam takes the XML output (the CKL file) and puts it into POA&M format, preserving the status and comments fields. The Excel spreadsheet (xlsx) features two tabs: POA&M and Remediation. This allows mitigators to use DISA's stig_viewer as their checklist tool as they manually walk a STIG and then put the output into something that both management (POA&M tab) and sysadmin's (Remediation tab) will be able to use. Both the "Finding Details" and "Comments" text fields are preserved in both tabs. 
 
-A CLI and a GUI version of this tool are available. I have also used pyinstaller to create win32 binaries so that systems without Python can still use the tool.
+To run the python tools, you will need to install openpyxl (pip install openpyxl).
+
+A CLI and a GUI version of this tool is available. 
+
+I have also used pyinstaller to create win32 binaries so that Microsoft Windows systems without Python can still use the tool.
