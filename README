@@ -7,4 +7,4 @@ To run the python tools, you will need to install openpyxl (pip install openpyxl
 
 A CLI and a GUI version of this tool is available. 
 
-I have also used pyinstaller to create win32 binaries so that Microsoft Windows systems without Python can still use the tool.
+In the "dist" folder I have included an Apple Disk Image (.dmg) and a win32 binary (.exe) for Microsoft Windows. I created these using pyinstaller so users not familiar with Python can still use the tool.
