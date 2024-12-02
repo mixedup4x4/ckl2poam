@@ -1,166 +1,152 @@
-#!/usr/bin/env python
-#ckl2poam.py
-#converts stig_viewer checklist file to a POA&M Excel spreadsheet
-#Allyn Stott (allyn.stott@navy.mil)
-#If you update with changes (please do!), email them out and I'll keep track of changes
-
-VERSION = 0.1
+#!/usr/bin/env python3
+# ckl2poam.py
+# Converts STIG Viewer checklist file to a POA&M Excel spreadsheet
+# Modernized and updated for Python 3
 
 import sys
-import subprocess
-import Tkinter
-import tkFileDialog
-import FileDialog
-from xml.dom.minidom import parseString, Node
+from tkinter import Tk, Frame, Button, Entry, filedialog
+from xml.dom.minidom import parseString
 from openpyxl import Workbook
+from openpyxl.utils import get_column_letter
 
-class ckl2poamGUI:
+VERSION = "1.0"
+
+
+class CKL2POAMGUI:
 
     def __init__(self):
-        
-        app = Tkinter.Tk()
+        self.fin = None
+        self.fout = None
+        self.dom = None
+
+        app = Tk()
         app.title('ckl2poam GUI')
-        fr1 = Tkinter.Frame(app, width = 300, height = 100)
+
+        # Frame 1: Input file selection
+        fr1 = Frame(app, width=300, height=100)
         fr1.pack(side="top", pady=10)
-        fr2 = Tkinter.Frame(app, width = 300, height = 100)
+        get_file_button = Button(fr1, text='Open CKL file ...', command=self.get_file)
+        get_file_button.pack(side='left', padx=5)
+        self.filein = Entry(fr1, width=40)
+        self.filein.pack(side='right', padx=5)
+
+        # Frame 2: Output file selection
+        fr2 = Frame(app, width=300, height=100)
         fr2.pack(side="top", pady=10)
-        fr3 = Tkinter.Frame(app, width = 300, height = 100)
+        save_file_button = Button(fr2, text='Save XLSX file ...', command=self.save_file)
+        save_file_button.pack(side='left', padx=5)
+        self.fileout = Entry(fr2, width=40)
+        self.fileout.pack(side='right', padx=5)
+
+        # Frame 3: Action buttons
+        fr3 = Frame(app, width=300, height=100)
         fr3.pack(side="bottom", pady=10)
-        
-        getFileButton = Tkinter.Button(fr1, text='Open CKL file ...')
-        getFileButton.bind('<Button>', self.GetFile)
-        getFileButton.pack(side='left')
-        self.filein = Tkinter.Entry(fr1)
-        self.filein.pack(side='right')
-        
-        saveFileButton = Tkinter.Button(fr2, text='Save XLSX file ...')
-        saveFileButton.bind('<Button>', self.SaveFile)
-        saveFileButton.pack(side='left')
-        self.fileout = Tkinter.Entry(fr2)
-        self.fileout.pack(side='right')
+        okay_button = Button(fr3, text='Generate', command=self.create_xlsx)
+        okay_button.pack(side="left", padx=10)
+        cancel_button = Button(fr3, text='Cancel', command=self.kill_app)
+        cancel_button.pack(side="right", padx=10)
 
-        okaybutton = Tkinter.Button(fr3, text=' OK ')
-        okaybutton.bind("<Button>", self.CreateXLSX)
-        okaybutton.pack(side="left")
-
-        cancelbutton = Tkinter.Button(fr3, text='Cancel')
-        cancelbutton.bind("<Button>", self.KillApp)
-        cancelbutton.pack(side="right")
-        
-        ws = app.winfo_screenwidth()
-        hs = app.winfo_screenheight()
-        x = (ws/2) - (400/2)
-        y = (hs/2) - (250/2)
-        app.geometry('%dx%d+%d+%d' % (400, 160, x, y))
-
+        # Center the GUI window
+        app.geometry('450x200+400+200')
         app.mainloop()
-        
-    def KillApp(self, event):
-        sys.exit(1)
-    
-    #initialize and create excel workbook/worksheet    
-    def CreateXLSX(self, event):
-        wb = Workbook()
-        ws1 = wb.get_active_sheet()
-        ws1.title = 'POA&M'
-        ws2 = wb.create_sheet()
-        ws2.title = 'Remediation'
-        c1Values = ['Weakness','CAT','Severity','IA Control and Impact Code','POC','Resources Required','Scheduled Completion Date','Milestones with Completion Dates','Milestone Changes','Source Identifying Weakness','Status','Finding Details','Comments']
-        c2Values = ['Weakness','CAT','Severity','IA Control and Impact Code','Source Identifying Weakness','Vulnerability Discussion','Check Content','Fix Text','Finding Details','Comments']
-        for i in range(len(c1Values)):
-            ws1.cell(row = 0, column = i).value = c1Values[i]
-        for i in range(len(c2Values)):
-            ws2.cell(row = 0, column = i).value = c2Values[i]
-                    
-        #fill excel workbook with values from ckl file
-        rowCounter = 1
-        vulnTag = self.dom.getElementsByTagName('VULN')
-        for vuln in vulnTag:
-            status = vuln.getElementsByTagName('STATUS')[0].firstChild.data
-            if status == 'Not_Reviewed' or status == 'Open':
-    
-                severity = vuln.getElementsByTagName('ATTRIBUTE_DATA')[1].firstChild.data
-                if severity == 'high':
-                    cat = 'CAT I'
-                elif severity == 'medium': 
-                    cat = 'CAT II'
-                elif severity == 'low':
-                    cat = 'CAT III'
-                else:
-                    cat = ''
 
-                if vuln.getElementsByTagName('ATTRIBUTE_DATA')[2].hasChildNodes():
-                    groupTitle = vuln.getElementsByTagName('ATTRIBUTE_DATA')[2].firstChild.data
-                else:
-                    groupTitle = ''
-
-                if vuln.getElementsByTagName('ATTRIBUTE_DATA')[3].hasChildNodes():
-                    ruleid = vuln.getElementsByTagName('ATTRIBUTE_DATA')[3].firstChild.data
-                else:
-                    ruleid = ''
-
-                if vuln.getElementsByTagName('ATTRIBUTE_DATA')[5].hasChildNodes():
-                    ruleTitle = vuln.getElementsByTagName('ATTRIBUTE_DATA')[5].firstChild.data
-                else:
-                    ruleTitle = ''
-
-                if vuln.getElementsByTagName('ATTRIBUTE_DATA')[6].hasChildNodes():
-                    vulnDiscuss = vuln.getElementsByTagName('ATTRIBUTE_DATA')[6].firstChild.data
-                else:
-                    vulnDiscuss = ''
-
-                if vuln.getElementsByTagName('ATTRIBUTE_DATA')[7].hasChildNodes():
-                    iaControls = vuln.getElementsByTagName('ATTRIBUTE_DATA')[7].firstChild.data
-                else:
-                    iaControls = ''
-
-                if vuln.getElementsByTagName('ATTRIBUTE_DATA')[8].hasChildNodes():
-                    chkContent = vuln.getElementsByTagName('ATTRIBUTE_DATA')[8].firstChild.data
-                else:
-                    chkContent = ''
-
-                if vuln.getElementsByTagName('ATTRIBUTE_DATA')[9].hasChildNodes():
-                    fixText = vuln.getElementsByTagName('ATTRIBUTE_DATA')[9].firstChild.data
-                else:
-                    fixText = ''
-
-                if vuln.getElementsByTagName('FINDING_DETAILS')[0].hasChildNodes():
-                    findDetails = vuln.getElementsByTagName('FINDING_DETAILS')[0].firstChild.data
-                else:
-                    findDetails = ''
-
-                if vuln.getElementsByTagName('COMMENTS')[0].hasChildNodes():
-                    comments = vuln.getElementsByTagName('COMMENTS')[0].firstChild.data
-                else:
-                    comments = ''
-                    
-                poamValues = [ruleTitle,cat,severity,iaControls,'','','','','',groupTitle + '\n' + ruleid,status,findDetails,comments]
-                remeValues = [ruleTitle,cat,severity,iaControls,groupTitle + '\n' + ruleid,vulnDiscuss,chkContent,fixText,findDetails,comments]
-                for i in range(len(poamValues)):
-                    ws1.cell(row = rowCounter, column = i).value = poamValues[i]
-                for i in range(len(remeValues)):
-                    ws2.cell(row = rowCounter, column = i).value = remeValues[i]
-                rowCounter = rowCounter + 1
-
-        wb.save(self.fout)
+    def kill_app(self):
         sys.exit(0)
-    
-    #open ckl file and parse with xml.dom.minidom.parseString()    
-    def GetFile(self, event):
-        self.fin = tkFileDialog.askopenfilename()
-        self.filein.insert(0, self.fin)
-        file = open(self.fin, 'r')
-        data = file.read()
-        file.close()
-        self.dom = parseString(data)
-        
-    #write all values to xlsx file
-    def SaveFile(self, event):
-        self.fout = tkFileDialog.asksaveasfilename(defaultextension=".xlsx")
-        self.fileout.insert(0, self.fout)
-            
+
+    def get_file(self):
+        self.fin = filedialog.askopenfilename(filetypes=[("Checklist Files", "*.ckl"), ("All Files", "*.*")])
+        if self.fin:
+            self.filein.delete(0, 'end')
+            self.filein.insert(0, self.fin)
+
+    def save_file(self):
+        self.fout = filedialog.asksaveasfilename(defaultextension=".xlsx", filetypes=[("Excel Files", "*.xlsx")])
+        if self.fout:
+            self.fileout.delete(0, 'end')
+            self.fileout.insert(0, self.fout)
+
+    def create_xlsx(self):
+        if not self.fin or not self.fout:
+            print("Error: Both input and output files must be specified!")
+            return
+
+        try:
+            with open(self.fin, 'r') as file:
+                data = file.read()
+                self.dom = parseString(data)
+        except Exception as e:
+            print(f"Error reading input file: {e}")
+            return
+
+        try:
+            wb = Workbook()
+            ws1 = wb.active
+            ws1.title = 'POA&M'
+            ws2 = wb.create_sheet(title='Remediation')
+
+            # Column headers
+            poam_headers = ['Weakness', 'CAT', 'Severity', 'IA Control and Impact Code', 'POC',
+                            'Resources Required', 'Scheduled Completion Date', 'Milestones with Completion Dates',
+                            'Milestone Changes', 'Source Identifying Weakness', 'Status', 'Finding Details', 'Comments']
+            remediation_headers = ['Weakness', 'CAT', 'Severity', 'IA Control and Impact Code', 'Source Identifying Weakness',
+                                   'Vulnerability Discussion', 'Check Content', 'Fix Text', 'Finding Details', 'Comments']
+
+            # Write headers
+            for col_num, header in enumerate(poam_headers, start=1):
+                ws1.cell(row=1, column=col_num, value=header)
+
+            for col_num, header in enumerate(remediation_headers, start=1):
+                ws2.cell(row=1, column=col_num, value=header)
+
+            # Populate data
+            row_counter = 2
+            for vuln in self.dom.getElementsByTagName('VULN'):
+                status = vuln.getElementsByTagName('STATUS')[0].firstChild.data
+                if status in ('Not_Reviewed', 'Open'):
+                    # Extract values with error handling
+                    def get_value(tag, index, default=''):
+                        try:
+                            return vuln.getElementsByTagName(tag)[index].firstChild.data
+                        except (IndexError, AttributeError):
+                            return default
+
+                    severity = get_value('ATTRIBUTE_DATA', 1)
+                    cat = {'high': 'CAT I', 'medium': 'CAT II', 'low': 'CAT III'}.get(severity, '')
+
+                    rule_title = get_value('ATTRIBUTE_DATA', 5)
+                    group_title = get_value('ATTRIBUTE_DATA', 2)
+                    rule_id = get_value('ATTRIBUTE_DATA', 3)
+                    vuln_discussion = get_value('ATTRIBUTE_DATA', 6)
+                    ia_controls = get_value('ATTRIBUTE_DATA', 7)
+                    chk_content = get_value('ATTRIBUTE_DATA', 8)
+                    fix_text = get_value('ATTRIBUTE_DATA', 9)
+                    finding_details = get_value('FINDING_DETAILS', 0)
+                    comments = get_value('COMMENTS', 0)
+
+                    poam_values = [rule_title, cat, severity, ia_controls, '', '', '', '', '',
+                                   f"{group_title}\n{rule_id}", status, finding_details, comments]
+                    remediation_values = [rule_title, cat, severity, ia_controls,
+                                          f"{group_title}\n{rule_id}", vuln_discussion,
+                                          chk_content, fix_text, finding_details, comments]
+
+                    # Write rows
+                    for col_num, value in enumerate(poam_values, start=1):
+                        ws1.cell(row=row_counter, column=col_num, value=value)
+
+                    for col_num, value in enumerate(remediation_values, start=1):
+                        ws2.cell(row=row_counter, column=col_num, value=value)
+
+                    row_counter += 1
+
+            wb.save(self.fout)
+            print(f"Excel file created successfully: {self.fout}")
+
+        except Exception as e:
+            print(f"Error creating Excel file: {e}")
+
+
 if __name__ == '__main__':
     try:
-        ckl2poamGUI()
+        CKL2POAMGUI()
     except KeyboardInterrupt:
-        raise SystemExit('Aborted by user request.')
+        sys.exit("Aborted by user request.")
