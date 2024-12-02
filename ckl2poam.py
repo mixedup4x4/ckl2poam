@@ -1,109 +1,130 @@
-#!/usr/bin/env python
-#ckl2poam.py
-#converts stig_viewer checklist file to a POA&M Excel spreadsheet
-#Last updated by Allyn Stott (allyn.stott@navy.mil)
-#If you update with changes (please do!), email them out and I'll keep track of changes
-
-VERSION = 0.1
+#!/usr/bin/env python3
+# ckl2poam.py
+# Converts STIG Viewer checklist file to a POA&M Excel spreadsheet
+# Last updated by Allyn Stott (allyn.stott@navy.mil)
 
 import sys
-from xml.dom.minidom import parseString, Node
+from xml.dom.minidom import parseString
 from openpyxl import Workbook
 
-# show help
-if len(sys.argv) < 3:
-    print 'ckl2poam version', VERSION
-    print 'Usage:', sys.argv[0], 'input.ckl output.xlsx'
+VERSION = "1.0"
+
+
+def show_help():
+    """Display usage instructions."""
+    print(f"ckl2poam version {VERSION}")
+    print(f"Usage: {sys.argv[0]} input.ckl output.xlsx")
     sys.exit(1)
 
-#open ckl file from stigviewer
-file = open(sys.argv[1], 'r')
-data = file.read()
-file.close()
-dom = parseString(data)
 
-#initialize excel workbook/worksheet for poa&m
-wb = Workbook()
-ws1 = wb.get_active_sheet()
-ws1.title = 'POA&M'
-ws2 = wb.create_sheet()
-ws2.title = 'Remediation'
-c1Values = ['Weakness','CAT','Severity','IA Control and Impact Code','POC','Resources Required','Scheduled Completion Date','Milestones with Completion Dates','Milestone Changes','Source Identifying Weakness','Status','Finding Details','Comments']
-c2Values = ['Weakness','CAT','Severity','IA Control and Impact Code','Source Identifying Weakness','Vulnerability Discussion','Check Content','Fix Text','Finding Details','Comments']
-for i in range(len(c1Values)):
-    ws1.cell(row = 0, column = i).value = c1Values[i]
-for i in range(len(c2Values)):
-    ws2.cell(row = 0, column = i).value = c2Values[i]
+def get_attribute_data(node, index, default=""):
+    """Safely retrieve data from ATTRIBUTE_DATA nodes."""
+    try:
+        return node.getElementsByTagName("ATTRIBUTE_DATA")[index].firstChild.data
+    except (IndexError, AttributeError):
+        return default
 
-#fill excel workbook with values from ckl file
-rowCounter = 1
-vulnTag = dom.getElementsByTagName('VULN')
-for vuln in vulnTag:
-    status = vuln.getElementsByTagName('STATUS')[0].firstChild.data
 
-    if status == 'Not_Reviewed' or status == 'Open':
-        severity = vuln.getElementsByTagName('ATTRIBUTE_DATA')[1].firstChild.data
-        if severity == 'high':
-            cat = 'CAT I'
-        elif severity == 'medium': 
-            cat = 'CAT II'
-        elif severity == 'low':
-            cat = 'CAT III'
-        else:
-            cat = ''
+def get_text_content(node, tag, default=""):
+    """Safely retrieve text content of a specific tag."""
+    try:
+        return node.getElementsByTagName(tag)[0].firstChild.data
+    except (IndexError, AttributeError):
+        return default
 
-        if vuln.getElementsByTagName('ATTRIBUTE_DATA')[2].hasChildNodes():
-            groupTitle = vuln.getElementsByTagName('ATTRIBUTE_DATA')[2].firstChild.data
-        else:
-            groupTitle = ''
 
-        if vuln.getElementsByTagName('ATTRIBUTE_DATA')[3].hasChildNodes():
-            ruleid = vuln.getElementsByTagName('ATTRIBUTE_DATA')[3].firstChild.data
-        else:
-            ruleid = ''
+def main():
+    if len(sys.argv) < 3:
+        show_help()
 
-        if vuln.getElementsByTagName('ATTRIBUTE_DATA')[5].hasChildNodes():
-            ruleTitle = vuln.getElementsByTagName('ATTRIBUTE_DATA')[5].firstChild.data
-        else:
-            ruleTitle = ''
+    input_file = sys.argv[1]
+    output_file = sys.argv[2]
 
-        if vuln.getElementsByTagName('ATTRIBUTE_DATA')[6].hasChildNodes():
-            vulnDiscuss = vuln.getElementsByTagName('ATTRIBUTE_DATA')[6].firstChild.data
-        else:    
-            vulnDiscuss = ''
+    # Read and parse the input file
+    try:
+        with open(input_file, 'r') as file:
+            data = file.read()
+            dom = parseString(data)
+    except Exception as e:
+        print(f"Error reading input file: {e}")
+        sys.exit(1)
 
-        if vuln.getElementsByTagName('ATTRIBUTE_DATA')[7].hasChildNodes():
-            iaControls = vuln.getElementsByTagName('ATTRIBUTE_DATA')[7].firstChild.data
-        else:
-            iaControls = ''
+    # Initialize Excel workbook
+    wb = Workbook()
+    ws1 = wb.active
+    ws1.title = "POA&M"
+    ws2 = wb.create_sheet(title="Remediation")
 
-        if vuln.getElementsByTagName('ATTRIBUTE_DATA')[8].hasChildNodes():
-            chkContent = vuln.getElementsByTagName('ATTRIBUTE_DATA')[8].firstChild.data
-        else:
-            chkContent = ''
+    # Define column headers
+    poam_headers = [
+        'Weakness', 'CAT', 'Severity', 'IA Control and Impact Code', 'POC',
+        'Resources Required', 'Scheduled Completion Date', 'Milestones with Completion Dates',
+        'Milestone Changes', 'Source Identifying Weakness', 'Status', 'Finding Details', 'Comments'
+    ]
+    remediation_headers = [
+        'Weakness', 'CAT', 'Severity', 'IA Control and Impact Code', 'Source Identifying Weakness',
+        'Vulnerability Discussion', 'Check Content', 'Fix Text', 'Finding Details', 'Comments'
+    ]
 
-        if vuln.getElementsByTagName('ATTRIBUTE_DATA')[9].hasChildNodes():
-            fixText = vuln.getElementsByTagName('ATTRIBUTE_DATA')[9].firstChild.data
-        else:
-            fixText = ''
+    # Add headers to worksheets
+    for col, header in enumerate(poam_headers, start=1):
+        ws1.cell(row=1, column=col, value=header)
 
-        if vuln.getElementsByTagName('FINDING_DETAILS')[0].hasChildNodes():
-            findDetails = vuln.getElementsByTagName('FINDING_DETAILS')[0].firstChild.data
-        else:
-            findDetails = ''
+    for col, header in enumerate(remediation_headers, start=1):
+        ws2.cell(row=1, column=col, value=header)
 
-        if vuln.getElementsByTagName('COMMENTS')[0].hasChildNodes():
-            comments = vuln.getElementsByTagName('COMMENTS')[0].firstChild.data
-        else:
-            comments = ''
-            
-        poamValues = [ruleTitle,cat,severity,iaControls,'','','','','',groupTitle + '\n' + ruleid,status,findDetails,comments]
-        remeValues = [ruleTitle,cat,severity,iaControls,groupTitle + '\n' + ruleid,vulnDiscuss,chkContent,fixText,findDetails,comments]
-        for i in range(len(poamValues)):
-            ws1.cell(row = rowCounter, column = i).value = poamValues[i]
-        for i in range(len(remeValues)):
-            ws2.cell(row = rowCounter, column = i).value = remeValues[i]
-        rowCounter = rowCounter + 1
+    # Process vulnerabilities
+    row_counter = 2
+    vulnerabilities = dom.getElementsByTagName('VULN')
 
-#write all values to xlsx file
-wb.save(sys.argv[2])
+    for vuln in vulnerabilities:
+        status = get_text_content(vuln, "STATUS")
+
+        if status in ("Not_Reviewed", "Open"):
+            severity = get_attribute_data(vuln, 1)
+            cat = {"high": "CAT I", "medium": "CAT II", "low": "CAT III"}.get(severity, "")
+
+            # Extract data fields
+            rule_title = get_attribute_data(vuln, 5)
+            group_title = get_attribute_data(vuln, 2)
+            rule_id = get_attribute_data(vuln, 3)
+            vuln_discussion = get_attribute_data(vuln, 6)
+            ia_controls = get_attribute_data(vuln, 7)
+            chk_content = get_attribute_data(vuln, 8)
+            fix_text = get_attribute_data(vuln, 9)
+            finding_details = get_text_content(vuln, "FINDING_DETAILS")
+            comments = get_text_content(vuln, "COMMENTS")
+
+            # Construct rows for each worksheet
+            poam_values = [
+                rule_title, cat, severity, ia_controls, '', '', '', '', '',
+                f"{group_title}\n{rule_id}", status, finding_details, comments
+            ]
+            remediation_values = [
+                rule_title, cat, severity, ia_controls, f"{group_title}\n{rule_id}",
+                vuln_discussion, chk_content, fix_text, finding_details, comments
+            ]
+
+            # Write rows to Excel sheets
+            for col, value in enumerate(poam_values, start=1):
+                ws1.cell(row=row_counter, column=col, value=value)
+
+            for col, value in enumerate(remediation_values, start=1):
+                ws2.cell(row=row_counter, column=col, value=value)
+
+            row_counter += 1
+
+    # Save the workbook
+    try:
+        wb.save(output_file)
+        print(f"Excel file created successfully: {output_file}")
+    except Exception as e:
+        print(f"Error saving Excel file: {e}")
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except KeyboardInterrupt:
+        sys.exit("Aborted by user request.")
